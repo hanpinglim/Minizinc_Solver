@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import random
-import os  # Import the os module at the beginning of your script
+import os  
 
 
 def generate_instance(V, K):

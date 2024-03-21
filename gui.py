@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import random
+import os  # Import the os module at the beginning of your script
+
 
 def generate_instance(V, K):
     edge_weight = '[|'
@@ -22,8 +24,12 @@ edge_weight = {edge_weight};
     return instance
 
 def save_instances(num_instances, V, K, filename):
+    # Check if the directory exists, if not create it
+    if not os.path.exists('instances'):
+        os.makedirs('instances')
+
     for i in range(num_instances):
-        with open('instances/'+str(i)+filename, "w") as f:
+        with open(os.path.join('instances', str(i) + filename), "w") as f:
             instance = generate_instance(V, K)
             f.write(instance)
             f.write("\n")

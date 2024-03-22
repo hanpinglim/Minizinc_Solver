@@ -39,40 +39,6 @@ def save_instances(num_instances, V, K, filename):
             f.write(instance)
             f.write("\n")
 
-# def generate_sudoku_instance(n):
-#     # Initialize a blank n x n Sudoku grid with zeros
-#     grid = [[0 for _ in range(n)] for _ in range(n)]
-    
-#     # Fill in some cells randomly for the instance
-#     # Note: This is a simplistic approach and does not guarantee a solvable puzzle
-#     for i in range(n):
-#         for j in range(n):
-#             if random.random() < 0.3:  # 30% chance to fill a cell
-#                 grid[i][j] = random.randint(1, n)
-    
-#     # Convert the grid into a MiniZinc-compatible data string
-#     instance_data = 'array[1..n, 1..n] of var 0..n: Sudoku = |\n'
-#     for row in grid:
-#         instance_data += ', '.join(str(num) for num in row) + ' |\n'
-#     instance_data += ';'
-    
-#     return instance_data
-
-# def save_instances(num_instances, n, filename):
-#     for i in range(num_instances):
-#         with open('instances/' + str(i) + filename, "w") as f:
-#             instance = generate_sudoku_instance(n)
-#             f.write(f'n = {n};\n{instance}\n')
-
-# def generate_instances():
-#     global instances_generated
-#     num_instances = 1000  # Generating fewer instances for demonstration
-#     n = 9  # 9x9 grid for standard Sudoku
-#     filename = "sudoku_instance.dzn"
-#     save_instances(num_instances, n, filename)
-#     messagebox.showinfo("Generate Instances", f"Generated {num_instances} instances.")
-#     instances_generated = True
-
 def generate_instances():
     global instances_generated
     num_instances = 1000

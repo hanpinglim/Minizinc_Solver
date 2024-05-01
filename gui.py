@@ -51,47 +51,43 @@ def generate_instances():
     instances_generated = True
 
 
-def solve_instance():
+def solve_instances():
     if not os.path.exists('solved_instances'):
         os.makedirs('solved_instances')
 
-    # Use the user-selected .dzn model file path
-    instance_path = filedialog.askopenfilename(initialdir="instances", filetypes=[("Data files", "*.dzn")])
-    if instance_path:
-        file_entry_dzn.delete(0, tk.END)
-        file_entry_dzn.insert(0, instance_path)
-    
-    #redundant fetch again:
-    instance_path = file_entry_dzn.get()
-    if not instance_path:
-        messagebox.showinfo("Error", "Please select an instance file.")
-        return
-    if not instance_path.endswith(".dzn"):  # Assuming .dzn is the instance file type
-        messagebox.showinfo("Error", "The selected file must be a .dzn file.")
-        return
-    
     model_path = file_entry_mzn.get()
     if not model_path.endswith(".mzn"):
-        messagebox.showinfo("Error", "The selected file must be a .mzn model file.")
+        messagebox.showinfo("Error", "No .mzn model file selected or incorrect file type.")
         return
 
-    model = minizinc.Model(model_path)
-    ortools_solver = minizinc.Solver.lookup("com.google.ortools.sat")
-    instance = minizinc.Instance(ortools_solver, model)
-    instance.add_file(instance_path)
+ # Fetching first 10 .dzn files
+    dzn_files = sorted([f for f in os.listdir("instances") if f.endswith(".dzn")])[:10]
+    total_files = len(dzn_files)
+    solved_count = 0
 
-    result = instance.solve()
-    
-    # Save the solution to a file in the 'solved_instances' directory
-    solution_filename = os.path.basename(instance_path).replace('.dzn', '_solution.txt')
-    solution_path = os.path.join('solved_instances', solution_filename)
+    for file_name in dzn_files:
+        instance_path = os.path.join("instances", file_name)
+        
+        model = minizinc.Model(model_path)
+        ortools_solver = minizinc.Solver.lookup("com.google.ortools.sat")
+        instance = minizinc.Instance(ortools_solver, model)
+        instance.add_file(instance_path)
 
-    if result.solution is not None:
-        with open(solution_path, 'w') as file:
-            file.write(str(result))
-        messagebox.showinfo("Solve Instances", f"Solution saved to {solution_path}")
-    else:
-        messagebox.showinfo("Solve Instances", "No solution found.")
+        result = instance.solve()
+        
+        # Save the solution to a file in the 'solved_instances' directory
+        solution_filename = file_name.replace('.dzn', '_solution.txt')
+        solution_path = os.path.join('solved_instances', solution_filename)
+
+        if result.solution is not None:
+            with open(solution_path, 'w') as file:
+                file.write(str(result))
+            solved_count += 1
+            # Update progress
+            progress = (solved_count / total_files) * 100
+            messagebox.showinfo("Progress", f"Solved {solved_count}/{total_files} instances ({progress:.2f}% complete).")
+        else:
+            messagebox.showinfo("Solve Instances", f"No solution found for {file_name}.")
 
 
 def select_file():
@@ -133,7 +129,7 @@ select_button.pack(padx=10, pady=5)
 generate_button = tk.Button(root, text="Generate Instances", command=generate_instances)
 generate_button.pack(padx=10, pady=5)
 
-solve_button = tk.Button(root, text="Solve Instances", command=solve_instance)
+solve_button = tk.Button(root, text="Solve Instances", command=solve_instances)
 solve_button.pack(padx=10, pady=5)
 
 # Create a dropdown menu for model selection

@@ -2,7 +2,10 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import os
 import random
-import minizinc
+import minizinc 
+import time
+import threading
+from minizinc import Model, Instance, Solver
 
 # Initialize the flag to False to indicate that instances have not been generated yet
 instances_generated = False

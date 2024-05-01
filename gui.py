@@ -42,32 +42,37 @@ def save_instances(num_instances, V, K, filename):
 def generate_instances():
     global instances_generated
     num_instances = 1000
-    V = 25
+    V = 20
     K = 3
     filename = "instance.dzn"
     save_instances(num_instances, V, K, filename)
     messagebox.showinfo("Generate Instances", f"Generated {num_instances} instances.")
     instances_generated = True
 
-def select_instance():
-    # Open a file dialog to select a specific instance
+
+def solve_instance():
+    # Use the user-selected .mzn model file path
     instance_path = filedialog.askopenfilename(initialdir="instances", filetypes=[("Data files", "*.dzn")])
     if instance_path:
-        solve_instance(instance_path)
+        file_entry_dzn.delete(0, tk.END)
+        file_entry_dzn.insert(0, instance_path)
 
-def solve_instance(instance_path):
-    # Use the user-selected .mzn model file path
-    model_path = file_entry.get()
-    if not model_path:
-        messagebox.showinfo("Error", "Please select a .mzn file.")
-        return
+    model_path = file_entry_mzn.get()
     if not model_path.endswith(".mzn"):
-        messagebox.showinfo("Error", "The selected file must be a .mzn file.")
+        messagebox.showinfo("Error", "The selected file must be a .mzn model file.")
+        return
+    
+    instance_path = file_entry_dzn.get()
+    if not instance_path:
+        messagebox.showinfo("Error", "Please select an instance file.")
+        return
+    if not instance_path.endswith(".dzn"):  # Assuming .dzn is the instance file type
+        messagebox.showinfo("Error", "The selected file must be a .dzn file.")
         return
 
     model = minizinc.Model(model_path)
-    gecode_solver = minizinc.Solver.lookup("gecode")
-    instance = minizinc.Instance(gecode_solver, model)
+    ortools_solver = minizinc.Solver.lookup("com.google.ortools.sat")
+    instance = minizinc.Instance(ortools_solver, model)
     instance.add_file(instance_path)
 
     result = instance.solve()
@@ -78,43 +83,12 @@ def solve_instance(instance_path):
         messagebox.showinfo("Solve Instances", "No solution found.")
 
 
-# def solve_instances():
-#     if not instances_generated:
-#         messagebox.showinfo("Error", "Please generate instances first.")
-#         return
-    
-#     # Use the user-selected .mzn file path
-#     model_path = file_entry.get()
-#     if not model_path:
-#         messagebox.showinfo("Error", "Please select a .mzn file.")
-#         return
-#     if not model_path.endswith(".mzn"):
-#         messagebox.showinfo("Error", "The selected file must be a .mzn file.")
-#         return
-
-#     # Similarly, update the instance path if needed
-#     instance_path = os.path.join('instances', '0instance.dzn')
-
-#     model = minizinc.Model(model_path)
-#     gecode_solver = minizinc.Solver.lookup("gecode")
-#     instance = minizinc.Instance(gecode_solver, instance_path)
-    
-#     # If the model requires a data file, add it here
-#     # instance.add_file(instance_path)
-
-#     result = instance.solve()
-    
-#     if result.solution is not None:
-#         messagebox.showinfo("Solve Instances", f"Solution:\n{result}")
-#     else:
-#         messagebox.showinfo("Solve Instances", "No solution found.")
-
 def select_file():
     # Update to only accept .mzn files
     file_path = filedialog.askopenfilename(filetypes=[("MiniZinc files", "*.mzn")])
     if file_path:
-        file_entry.delete(0, tk.END)
-        file_entry.insert(0, file_path)
+        file_entry_mzn.delete(0, tk.END)
+        file_entry_mzn.insert(0, file_path)
 
 
 root = tk.Tk()
@@ -128,16 +102,21 @@ dropdown_var1 = tk.StringVar(root)
 dropdown_var1.set("GNN")
 
 # Create an entry widget to display the file path
-file_entry = tk.Entry(root, width=50)
-file_entry.pack(padx=10, pady=5)
+label_mzn = tk.Label(root, text="Constraint Model File (.mzn):")
+label_mzn.pack(padx=10, pady=5)
+file_entry_mzn = tk.Entry(root, width=50)
+file_entry_mzn.pack(padx=10, pady=5)
+
+# Create an entry widget to display the file path
+label_dzn = tk.Label(root, text="Instance Data File (.dzn):")
+label_dzn.pack(padx=10, pady=5)
+file_entry_dzn = tk.Entry(root, width=50)
+file_entry_dzn.pack(padx=10, pady=5)
 
 # Create a button to select a file
 select_button = tk.Button(root, text="Select File", command=select_file)
 select_button.pack(padx=10, pady=5)
 
-# Create select instance button
-select_button_instance = tk.Button(root, text="Select Instance", command=select_instance)
-select_button_instance.pack(padx=10, pady=5)
 
 # Create buttons for generating and solving instances
 generate_button = tk.Button(root, text="Generate Instances", command=generate_instances)

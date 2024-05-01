@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 import os
 import random
 import minizinc
@@ -42,8 +42,8 @@ def save_instances(num_instances, V, K, filename):
 def generate_instances():
     global instances_generated
     num_instances = 1000
-    #Note: when V= 25, solver takes under 20 minute to solve, when V=20 solver takes under 1 minute to solve
-    V = 15 
+    #Note: when V= 25, solver takes under 30 minute to solve, when V=20 solver takes under 1 minute to solve
+    V = 15
     K = 3
     filename = "instance.dzn"
     save_instances(num_instances, V, K, filename)
@@ -60,35 +60,54 @@ def solve_instances():
         messagebox.showinfo("Error", "No .mzn model file selected or incorrect file type.")
         return
 
- # Fetching first 10 .dzn files
+    # Fetching first 10 .dzn files
     dzn_files = sorted([f for f in os.listdir("instances") if f.endswith(".dzn")])[:10]
     total_files = len(dzn_files)
-    solved_count = 0
+
+    # Configure progress bar maximum value
+    progress['maximum'] = total_files
+    progress['value'] = 0  # Reset progress bar to 0 at the start
+
+    failed_instances = []  # List to keep track of failed instances
 
     for file_name in dzn_files:
         instance_path = os.path.join("instances", file_name)
         
-        model = minizinc.Model(model_path)
-        ortools_solver = minizinc.Solver.lookup("com.google.ortools.sat")
-        instance = minizinc.Instance(ortools_solver, model)
-        instance.add_file(instance_path)
+        try:
+            model = minizinc.Model(model_path)
+            ortools_solver = minizinc.Solver.lookup("com.google.ortools.sat")
+            instance = minizinc.Instance(ortools_solver, model)
+            instance.add_file(instance_path)
 
-        result = instance.solve()
-        
-        # Save the solution to a file in the 'solved_instances' directory
-        solution_filename = file_name.replace('.dzn', '_solution.txt')
-        solution_path = os.path.join('solved_instances', solution_filename)
+            result = instance.solve()
+            
+            # Save the solution to a file in the 'solved_instances' directory
+            solution_filename = file_name.replace('.dzn', '_solution.txt')
+            solution_path = os.path.join('solved_instances', solution_filename)
 
-        if result.solution is not None:
-            with open(solution_path, 'w') as file:
-                file.write(str(result))
-            solved_count += 1
-            # Update progress
-            progress = (solved_count / total_files) * 100
-            messagebox.showinfo("Progress", f"Solved {solved_count}/{total_files} instances ({progress:.2f}% complete).")
-        else:
-            messagebox.showinfo("Solve Instances", f"No solution found for {file_name}.")
+            if result.solution is not None:
+                with open(solution_path, 'w') as file:
+                    file.write(str(result))
+            else:
+                raise Exception("No solution found")
+            
+        except Exception as e:
+            failed_instances.append(file_name)  # Add the file name to the list of failed instances
+            print(f"Failed to solve {file_name}: {e}")  # Optionally print or log the error
 
+        finally:
+            progress['value'] += 1  # Increment progress bar value
+            root.update_idletasks()  # Update GUI to reflect progress
+
+        progress['value'] += 1  # Increment progress bar value
+        root.update_idletasks()  # Update GUI to reflect progress
+
+    # Show final message with the number of failed instances and their names
+    if failed_instances:
+        failed_message = f"Failed to solve {len(failed_instances)} instances: " + ", ".join(failed_instances)
+        messagebox.showinfo("Completion", f"All instances processed.\n{failed_message}")
+    else:
+        messagebox.showinfo("Completion", "All instances processed successfully with no failures.")
 
 def select_file():
     # Update to only accept .mzn files
@@ -114,16 +133,9 @@ label_mzn.pack(padx=10, pady=5)
 file_entry_mzn = tk.Entry(root, width=50)
 file_entry_mzn.pack(padx=10, pady=5)
 
-# Create an entry widget to display the file path
-label_dzn = tk.Label(root, text="Instance Data File (.dzn):")
-label_dzn.pack(padx=10, pady=5)
-file_entry_dzn = tk.Entry(root, width=50)
-file_entry_dzn.pack(padx=10, pady=5)
-
 # Create a button to select a file
 select_button = tk.Button(root, text="Select mzn constraint File", command=select_file)
 select_button.pack(padx=10, pady=5)
-
 
 # Create buttons for generating and solving instances
 generate_button = tk.Button(root, text="Generate Instances", command=generate_instances)
@@ -135,5 +147,10 @@ solve_button.pack(padx=10, pady=5)
 # Create a dropdown menu for model selection
 dropdown1 = tk.OptionMenu(root, dropdown_var1, *options1)
 dropdown1.pack(padx=10, pady=10)
+
+# Initialize the progress bar
+progress = ttk.Progressbar(root, orient="horizontal", length=200, mode='determinate')
+progress.pack(padx=10, pady=20)
+
 
 root.mainloop()

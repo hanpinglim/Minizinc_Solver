@@ -42,7 +42,8 @@ def save_instances(num_instances, V, K, filename):
 def generate_instances():
     global instances_generated
     num_instances = 1000
-    V = 20
+    #Note: when V= 25, solver takes under 20 minute to solve, when V=20 solver takes under 1 minute to solve
+    V = 15 
     K = 3
     filename = "instance.dzn"
     save_instances(num_instances, V, K, filename)
@@ -51,23 +52,27 @@ def generate_instances():
 
 
 def solve_instance():
-    # Use the user-selected .mzn model file path
+    if not os.path.exists('solved_instances'):
+        os.makedirs('solved_instances')
+
+    # Use the user-selected .dzn model file path
     instance_path = filedialog.askopenfilename(initialdir="instances", filetypes=[("Data files", "*.dzn")])
     if instance_path:
         file_entry_dzn.delete(0, tk.END)
         file_entry_dzn.insert(0, instance_path)
-
-    model_path = file_entry_mzn.get()
-    if not model_path.endswith(".mzn"):
-        messagebox.showinfo("Error", "The selected file must be a .mzn model file.")
-        return
     
+    #redundant fetch again:
     instance_path = file_entry_dzn.get()
     if not instance_path:
         messagebox.showinfo("Error", "Please select an instance file.")
         return
     if not instance_path.endswith(".dzn"):  # Assuming .dzn is the instance file type
         messagebox.showinfo("Error", "The selected file must be a .dzn file.")
+        return
+    
+    model_path = file_entry_mzn.get()
+    if not model_path.endswith(".mzn"):
+        messagebox.showinfo("Error", "The selected file must be a .mzn model file.")
         return
 
     model = minizinc.Model(model_path)
@@ -77,8 +82,14 @@ def solve_instance():
 
     result = instance.solve()
     
+    # Save the solution to a file in the 'solved_instances' directory
+    solution_filename = os.path.basename(instance_path).replace('.dzn', '_solution.txt')
+    solution_path = os.path.join('solved_instances', solution_filename)
+
     if result.solution is not None:
-        messagebox.showinfo("Solve Instances", f"Solution:\n{result}")
+        with open(solution_path, 'w') as file:
+            file.write(str(result))
+        messagebox.showinfo("Solve Instances", f"Solution saved to {solution_path}")
     else:
         messagebox.showinfo("Solve Instances", "No solution found.")
 
@@ -114,7 +125,7 @@ file_entry_dzn = tk.Entry(root, width=50)
 file_entry_dzn.pack(padx=10, pady=5)
 
 # Create a button to select a file
-select_button = tk.Button(root, text="Select File", command=select_file)
+select_button = tk.Button(root, text="Select mzn constraint File", command=select_file)
 select_button.pack(padx=10, pady=5)
 
 

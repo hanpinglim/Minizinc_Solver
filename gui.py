@@ -63,8 +63,8 @@ def solve_instances():
         messagebox.showinfo("Error", "No .mzn model file selected or incorrect file type.")
         return
 
-    # Fetching first 10 .dzn files
-    dzn_files = sorted([f for f in os.listdir("instances") if f.endswith(".dzn")])[:10]
+    # Fetching first 100 .dzn files
+    dzn_files = sorted([f for f in os.listdir("instances") if f.endswith(".dzn")])[:100]
     total_files = len(dzn_files)
 
     # Configure progress bar maximum value

@@ -3,6 +3,18 @@ from tkinter import filedialog, messagebox
 import os
 import random
 import minizinc
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import os
+import random
+import minizinc
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.metrics import confusion_matrix, accuracy_score, roc_curve, auc, precision_recall_curve, average_precision_score
+import matplotlib.pyplot as plt
 
 # Initialize the flag to False to indicate that instances have not been generated yet
 instances_generated = False
@@ -100,7 +112,69 @@ def select_file():
     if file_path:
         file_entry_mzn.delete(0, tk.END)
         file_entry_mzn.insert(0, file_path)
+def analyze_data():
+    # File selection
+    file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+    if not file_path:
+        messagebox.showinfo("Error", "Please select a dataset.")
+        return
+    
+    # Data handling
+    data = pd.read_csv(file_path)
+    data['subset_exists'] = data['subset_exists'].astype('category')
+    train_data, test_data = train_test_split(data, test_size=0.33, random_state=1148, stratify=data['subset_exists'])
 
+    # Models
+    dt_classifier = DecisionTreeClassifier()
+    xgb_classifier = XGBClassifier()
+    rf_classifier = RandomForestClassifier(n_estimators=1000, max_features=2)
+
+    # Training
+    dt_classifier.fit(train_data.drop('subset_exists', axis=1), train_data['subset_exists'])
+    xgb_classifier.fit(train_data.drop('subset_exists', axis=1), train_data['subset_exists'])
+    rf_classifier.fit(train_data.drop('subset_exists', axis=1), train_data['subset_exists'])
+
+    # Evaluation
+    predictions_dt = dt_classifier.predict(test_data.drop('subset_exists', axis=1))
+    predictions_xgb = xgb_classifier.predict(test_data.drop('subset_exists', axis=1))
+    predictions_rf = rf_classifier.predict(test_data.drop('subset_exists', axis=1))
+
+    # Store results in specified directory
+    output_dir = 'analysis_results'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Save ROC and Precision-Recall graphs
+    evaluate_model(dt_classifier, test_data.drop('subset_exists', axis=1), test_data['subset_exists'], "Decision Tree", output_dir)
+    evaluate_model(xgb_classifier, test_data.drop('subset_exists', axis=1), test_data['subset_exists'], "XGBoost", output_dir)
+    evaluate_model(rf_classifier, test_data.drop('subset_exists', axis=1), test_data['subset_exists'], "Random Forest", output_dir)
+
+    messagebox.showinfo("Analysis Complete", "Analysis and graphs saved in 'analysis_results' folder.")
+
+def evaluate_model(model, test_features, test_labels, model_name, output_dir):
+    probabilities = model.predict_proba(test_features)[:,1]
+    fpr, tpr, _ = roc_curve(test_labels, probabilities)
+    roc_auc = auc(fpr, tpr)
+    plt.figure()
+    plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.plot([0, 1], [0, 1], linestyle='--')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'ROC Curve - {model_name}')
+    plt.legend(loc="lower right")
+    plt.savefig(os.path.join(output_dir, f'ROC_{model_name}.png'))
+    plt.close()
+
+    precision, recall, _ = precision_recall_curve(test_labels, probabilities)
+    average_precision = average_precision_score(test_labels, probabilities)
+    plt.figure()
+    plt.plot(recall, precision, label=f'AP = {average_precision:.2f}')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title(f'Precision-Recall Curve - {model_name}')
+    plt.legend(loc="lower right")
+    plt.savefig(os.path.join(output_dir, f'PR_{model_name}.png'))
+    plt.close()
 
 root = tk.Tk()
 root.title("MiniZinc Instance Solver")
@@ -140,4 +214,6 @@ solve_button.pack(padx=10, pady=5)
 dropdown1 = tk.OptionMenu(root, dropdown_var1, *options1)
 dropdown1.pack(padx=10, pady=10)
 
+analyze_button = tk.Button(root, text="Analyze Data", command=analyze_data)
+analyze_button.pack(padx=10, pady=5)
 root.mainloop()

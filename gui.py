@@ -4,6 +4,14 @@ import os
 import random
 import minizinc 
 import time
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.metrics import confusion_matrix, accuracy_score, roc_curve, auc, precision_recall_curve, average_precision_score
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 #import threading #for future so tkinter doesn't "stop responding"
 #from minizinc import Model, Instance, Solver
 
@@ -119,17 +127,93 @@ def select_file():
         file_entry_mzn.delete(0, tk.END)
         file_entry_mzn.insert(0, file_path)
 
+def analyze_data(root):
+    # File selection
+    file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+    if not file_path:
+        messagebox.showinfo("Error", "Please select a dataset.")
+        return
 
+    # Data handling
+    data = pd.read_csv(file_path)
+    data['subset_exists'] = data['subset_exists'].astype('category')
+    train_data, test_data = train_test_split(data, test_size=0.33, random_state=1148, stratify=data['subset_exists'])
+
+    # User selects a model from the drop down options
+    selected_model = dropdown_var1.get()
+
+    # Models
+    if selected_model == "Decision tree model":
+        model = DecisionTreeClassifier()
+        model_name = "Decision Tree"
+    elif selected_model == "Xgboost tree model":
+        model = XGBClassifier()
+        model_name = "XGBoost"
+    elif selected_model == "Random forest model":
+        model = RandomForestClassifier(n_estimators=1000, max_features=2)
+        model_name = "Random Forest"
+
+    # Training
+    model.fit(train_data.drop('subset_exists', axis=1), train_data['subset_exists'])
+    predictions = model.predict(test_data.drop('subset_exists', axis=1))
+
+    # Evaluate and display model in a new window
+    evaluate_model(model, test_data.drop('subset_exists', axis=1), test_data['subset_exists'], model_name)
+
+def evaluate_model(model, test_features, test_labels, model_name):
+    probabilities = model.predict_proba(test_features)[:, 1]
+    fpr, tpr, _ = roc_curve(test_labels, probabilities)
+    roc_auc = auc(fpr, tpr)
+    precision, recall, _ = precision_recall_curve(test_labels, probabilities)
+    average_precision = average_precision_score(test_labels, probabilities)
+
+    # Create a new window
+    plot_window = tk.Toplevel()
+    plot_window.title("Analysis Results")
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Plot ROC Curve
+    ax1.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
+    ax1.plot([0, 1], [0, 1], linestyle='--')
+    ax1.set_xlabel('False Positive Rate')
+    ax1.set_ylabel('True Positive Rate')
+    ax1.set_title(f'ROC Curve - {model_name}')
+    ax1.legend(loc="lower right")
+
+    # Plot Precision-Recall Curve
+    ax2.plot(recall, precision, label=f'AP = {average_precision:.2f}')
+    ax2.set_xlabel('Recall')
+    ax2.set_ylabel('Precision')
+    ax2.set_title(f'Precision-Recall Curve - {model_name}')
+    ax2.legend(loc="lower right")
+
+    # Display the plot in the new window
+    canvas = FigureCanvasTkAgg(fig, master=plot_window)
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+    # Save button
+    save_button = tk.Button(plot_window, text="Save Plots", command=lambda: save_plots(fig, model_name))
+    save_button.pack(side=tk.BOTTOM)
+    messagebox.showinfo("Analysis Complete", "Analysis displayed in a new window.")
+
+def save_plots(fig, model_name):
+    output_dir = 'analysis_results'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    # Save figure
+    fig.savefig(os.path.join(output_dir, f'{model_name}_analysis_plots.png'))
+    messagebox.showinfo("Save Successful", f"Plots saved in '{output_dir}' folder.")
 root = tk.Tk()
 root.title("MiniZinc Instance Solver")
 
 # Options for dropdown menus
-options1 = ["GNN", "Supervised", "Reinforcement"]
+options1 = ["Decision tree model", "Xgboost tree model", "Random forest model"]
 
 # Define tkinter variable for dropdown selection
 dropdown_var1 = tk.StringVar(root)
-dropdown_var1.set("GNN")
-
+dropdown_var1.set("Decision tree model")
 # Create an entry widget to display the file path
 label_mzn = tk.Label(root, text="Constraint Model File (.mzn):")
 label_mzn.pack(padx=10, pady=5)
@@ -147,13 +231,14 @@ generate_button.pack(padx=10, pady=5)
 solve_button = tk.Button(root, text="Solve Instances", command=solve_instances)
 solve_button.pack(padx=10, pady=5)
 
-# Create a dropdown menu for model selection
-dropdown1 = tk.OptionMenu(root, dropdown_var1, *options1)
-dropdown1.pack(padx=10, pady=10)
-
 # Initialize the progress bar
 progress = ttk.Progressbar(root, orient="horizontal", length=200, mode='determinate')
 progress.pack(padx=10, pady=20)
 
-
+# Drop down values
+dropdown = tk.OptionMenu(root, dropdown_var1, "Decision tree model", "Xgboost tree model", "Random forest model")
+dropdown.pack()
+# Analyze button
+analyze_button = tk.Button(root, text="Analyze Data", command=lambda: analyze_data(root))
+analyze_button.pack()
 root.mainloop()

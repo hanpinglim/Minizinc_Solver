@@ -83,7 +83,6 @@ def solve_instances():
 
     for file_name in dzn_files:
         instance_path = os.path.join("instances", file_name)
-        
         try:
             model = minizinc.Model(model_path)
             ortools_solver = minizinc.Solver.lookup("com.google.ortools.sat")
@@ -108,10 +107,7 @@ def solve_instances():
 
         finally:
             progress['value'] += 1  # Increment progress bar value
-            root.update_idletasks()  # Update GUI to reflect progress
-
-        progress['value'] += 1  # Increment progress bar value
-        root.update_idletasks()  # Update GUI to reflect progress
+            root.update()  # Update GUI to reflect progress
 
     # Show final message with the number of failed instances and their names
     if failed_instances:
@@ -205,6 +201,7 @@ def save_plots(fig, model_name):
     # Save figure
     fig.savefig(os.path.join(output_dir, f'{model_name}_analysis_plots.png'))
     messagebox.showinfo("Save Successful", f"Plots saved in '{output_dir}' folder.")
+
 root = tk.Tk()
 root.title("MiniZinc Instance Solver")
 
@@ -240,5 +237,5 @@ dropdown = tk.OptionMenu(root, dropdown_var1, "Decision tree model", "Xgboost tr
 dropdown.pack()
 # Analyze button
 analyze_button = tk.Button(root, text="Analyze Data", command=lambda: analyze_data(root))
-analyze_button.pack()
+analyze_button.pack(padx=10, pady=5)
 root.mainloop()

@@ -12,8 +12,6 @@ from xgboost import XGBClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_curve, auc, precision_recall_curve, average_precision_score
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-#import threading #for future so tkinter doesn't "stop responding"
-#from minizinc import Model, Instance, Solver
 
 # Initialize the flag to False to indicate that instances have not been generated yet
 instances_generated = False
@@ -52,8 +50,15 @@ def save_instances(num_instances, V, K, filename):
 
 def generate_instances():
     global instances_generated
-    num_instances = 1000
-    #Note: when V= 25, solver takes under 30 minute to solve, when V=20 solver takes under 1 minute to solve
+    try:
+        num_instances = int(num_instances_entry.get())
+        if num_instances <= 0:
+            raise ValueError("Number of instances must be a positive integer.")
+    except ValueError as e:
+        messagebox.showerror("Invalid input", "Please enter a valid number of instances.")
+        return
+
+    # Note: when V= 25, solver takes under 30 minute to solve, when V=20 solver takes under 1 minute to solve
     V = 15
     K = 3
     filename = "instance.dzn"
@@ -61,60 +66,91 @@ def generate_instances():
     messagebox.showinfo("Generate Instances", f"Generated {num_instances} instances.")
     instances_generated = True
 
-
 def solve_instances():
-    if not os.path.exists('solved_instances'):
-        os.makedirs('solved_instances')
-
+    processed_dir = 'processed'
+    if not os.path.exists(processed_dir):
+        os.makedirs(processed_dir)
     model_path = file_entry_mzn.get()
     if not model_path.endswith(".mzn"):
         messagebox.showinfo("Error", "No .mzn model file selected or incorrect file type.")
         return
 
-    # Fetching first 100 .dzn files
-    dzn_files = sorted([f for f in os.listdir("instances") if f.endswith(".dzn")])[:100]
-    total_files = len(dzn_files)
+    try:
+        num_solve_instances = int(num_solve_instances_entry.get())
+        if num_solve_instances <= 0:
+            raise ValueError("Number of instances to solve must be a positive integer.")
+    except ValueError as e:
+        messagebox.showerror("Invalid input", "Please enter a valid number of instances to solve.")
+        return
 
-    # Configure progress bar maximum value
-    progress['maximum'] = total_files
-    progress['value'] = 0  # Reset progress bar to 0 at the start
+    dzn_files = sorted([f for f in os.listdir("instances") if f.endswith(".dzn")])[:num_solve_instances]
+    
+    if num_solve_instances > len(dzn_files):
+        messagebox.showerror("Invalid input", f"Number of instances to solve exceeds the available generated instances ({len(dzn_files)}).")
+        return
 
-    failed_instances = []  # List to keep track of failed instances
+    try:
+        train_percentage = int(train_percentage_entry.get())
+        if not 0 < train_percentage < 100:
+            raise ValueError("Percentage must be between 1 and 99.")
+    except ValueError as e:
+        messagebox.showerror("Invalid input", "Please enter a valid percentage between 1 and 99.")
+        return
 
-    for file_name in dzn_files:
+    train_dir = os.path.join(processed_dir, 'train')
+    test_dir = os.path.join(processed_dir, 'test')
+    if not os.path.exists(train_dir):
+        os.makedirs(train_dir)
+    if not os.path.exists(test_dir):
+        os.makedirs(test_dir)
+
+    train_count = int(num_solve_instances * train_percentage / 100)
+    test_count = num_solve_instances - train_count
+
+    progress['maximum'] = len(dzn_files)
+    progress['value'] = 0
+    failed_instances = []
+    for i, file_name in enumerate(dzn_files):
         instance_path = os.path.join("instances", file_name)
+        with open(instance_path, 'r') as file:
+            instance_data = file.read()
         try:
             model = minizinc.Model(model_path)
-            ortools_solver = minizinc.Solver.lookup("com.google.ortools.sat")
-            instance = minizinc.Instance(ortools_solver, model)
+            solver = minizinc.Solver.lookup("com.google.ortools.sat")
+            instance = minizinc.Instance(solver, model)
             instance.add_file(instance_path)
-
             result = instance.solve()
-            
-            # Save the solution to a file in the 'solved_instances' directory
             solution_filename = file_name.replace('.dzn', '_solution.txt')
-            solution_path = os.path.join('solved_instances', solution_filename)
-
+            if i < train_count:
+                solution_path = os.path.join(train_dir, solution_filename)
+            else:
+                solution_path = os.path.join(test_dir, solution_filename)
             if result.solution is not None:
                 with open(solution_path, 'w') as file:
-                    file.write(str(result))
+                    file.write(instance_data + "\n\n" + str(result))
             else:
                 raise Exception("No solution found")
-            
         except Exception as e:
-            failed_instances.append(file_name)  # Add the file name to the list of failed instances
-            print(f"Failed to solve {file_name}: {e}")  # Optionally print or log the error
-
+            failed_instances.append(file_name)
+            print(f"Failed to solve {file_name}: {e}")
         finally:
             progress['value'] += 1  # Increment progress bar value
             root.update()  # Update GUI to reflect progress
 
     # Show final message with the number of failed instances and their names
     if failed_instances:
-        failed_message = f"Failed to solve {len(failed_instances)} instances: " + ", ".join(failed_instances)
-        messagebox.showinfo("Completion", f"All instances processed.\n{failed_message}")
+        messagebox.showinfo("Completion", f"Failed to solve {len(failed_instances)} instances: {', '.join(failed_instances)}")
     else:
         messagebox.showinfo("Completion", "All instances processed successfully with no failures.")
+
+def train_model():
+    from trainer import process_data 
+
+    # Process the data and check if it was successful
+    if process_data():
+        messagebox.showinfo("Success", "Data processed successfully and is ready for training.")
+    else:
+        messagebox.showerror("Error", "Failed to process data.")
 
 def select_file():
     # Update to only accept .mzn files
@@ -133,7 +169,18 @@ def analyze_data(root):
     # Data handling
     data = pd.read_csv(file_path)
     data['subset_exists'] = data['subset_exists'].astype('category')
-    train_data, test_data = train_test_split(data, test_size=0.33, random_state=1148, stratify=data['subset_exists'])
+    
+    try:
+        train_percentage = int(train_percentage_entry.get())
+        if not 0 < train_percentage < 100:
+            raise ValueError("Percentage must be between 1 and 99.")
+    except ValueError as e:
+        messagebox.showerror("Invalid input", "Please enter a valid percentage between 1 and 99.")
+        return
+
+    test_percentage = 100 - train_percentage
+
+    train_data, test_data = train_test_split(data, test_size=test_percentage/100, random_state=1148, stratify=data['subset_exists'])
 
     # User selects a model from the drop down options
     selected_model = dropdown_var1.get()
@@ -211,6 +258,7 @@ options1 = ["Decision tree model", "Xgboost tree model", "Random forest model"]
 # Define tkinter variable for dropdown selection
 dropdown_var1 = tk.StringVar(root)
 dropdown_var1.set("Decision tree model")
+
 # Create an entry widget to display the file path
 label_mzn = tk.Label(root, text="Constraint Model File (.mzn):")
 label_mzn.pack(padx=10, pady=5)
@@ -221,11 +269,33 @@ file_entry_mzn.pack(padx=10, pady=5)
 select_button = tk.Button(root, text="Select mzn constraint File", command=select_file)
 select_button.pack(padx=10, pady=5)
 
+# Entry for number of instances
+num_instances_label = tk.Label(root, text="Number of Instances:")
+num_instances_label.pack(padx=10, pady=5)
+num_instances_entry = tk.Entry(root, width=10)
+num_instances_entry.pack(padx=10, pady=5)
+
 # Create buttons for generating and solving instances
 generate_button = tk.Button(root, text="Generate Instances", command=generate_instances)
 generate_button.pack(padx=10, pady=5)
 
+# Entry for number of instances to solve
+num_solve_instances_label = tk.Label(root, text="Number of Instances to Solve:")
+num_solve_instances_label.pack(padx=10, pady=5)
+num_solve_instances_entry = tk.Entry(root, width=10)
+num_solve_instances_entry.pack(padx=10, pady=5)
+
+# Entry for percentage of instances to train
+train_percentage_label = tk.Label(root, text="Percentage of Instances to Train:")
+train_percentage_label.pack(padx=10, pady=5)
+train_percentage_entry = tk.Entry(root, width=10)
+train_percentage_entry.pack(padx=10, pady=5)
+
+
 solve_button = tk.Button(root, text="Solve Instances", command=solve_instances)
+solve_button.pack(padx=10, pady=5)
+
+solve_button = tk.Button(root, text="Train Model", command=train_model)
 solve_button.pack(padx=10, pady=5)
 
 # Initialize the progress bar
@@ -233,8 +303,9 @@ progress = ttk.Progressbar(root, orient="horizontal", length=200, mode='determin
 progress.pack(padx=10, pady=20)
 
 # Drop down values
-dropdown = tk.OptionMenu(root, dropdown_var1, "Decision tree model", "Xgboost tree model", "Random forest model")
+dropdown = tk.OptionMenu(root, dropdown_var1, *options1)
 dropdown.pack()
+
 # Analyze button
 analyze_button = tk.Button(root, text="Analyze Data", command=lambda: analyze_data(root))
 analyze_button.pack(padx=10, pady=5)

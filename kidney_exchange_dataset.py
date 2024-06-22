@@ -4,10 +4,13 @@ from torch_geometric.data import Dataset, Data
 import re
 
 class KidneyExchangeDataset(Dataset):
-    def __init__(self, root, processed_dir=None, transform=None, pre_transform=None):
+    def __init__(self, root, processed_dir=None, train=True, transform=None, pre_transform=None):
         super(KidneyExchangeDataset, self).__init__(root, transform=transform, pre_transform=pre_transform)
-        # Set up the directory for processed data
-        self.processed_dir = processed_dir if processed_dir else os.path.join(root, 'processed')
+        # Set up the directory for processed data based on train or test
+        if train:
+            self.processed_dir = processed_dir if processed_dir else os.path.join(root, 'processed', 'train')
+        else:
+            self.processed_dir = processed_dir if processed_dir else os.path.join(root, 'processed', 'test')
         os.makedirs(self.processed_dir, exist_ok=True)
 
     @property

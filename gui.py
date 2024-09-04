@@ -12,6 +12,10 @@ from xgboost import XGBClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_curve, auc, precision_recall_curve, average_precision_score
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import pickle
+import joblib
+import subprocess
+
 
 # Initialize the flag to False to indicate that instances have not been generated yet
 instances_generated = False
@@ -187,7 +191,13 @@ def analyze_data(root):
 
     # Models
     if selected_model == "Decision tree model":
-        model = DecisionTreeClassifier()
+         # Read hyperparameters from the input fields
+        criterion = criterion_var.get()
+        max_depth = None if max_depth_entry.get() == '' else int(max_depth_entry.get())
+        min_samples_split = int(min_samples_split_entry.get())
+        min_samples_leaf = int(min_samples_leaf_entry.get())
+
+        model = DecisionTreeClassifier(criterion=criterion, max_depth=max_depth, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf)
         model_name = "Decision Tree"
     elif selected_model == "Xgboost tree model":
         model = XGBClassifier()
@@ -202,6 +212,21 @@ def analyze_data(root):
 
     # Evaluate and display model in a new window
     evaluate_model(model, test_data.drop('subset_exists', axis=1), test_data['subset_exists'], model_name)
+
+def export_model(model, model_name):
+    save_path = filedialog.asksaveasfilename(defaultextension=".pkl", filetypes=[("Pickle files", "*.pkl"), ("Joblib files", "*.joblib")])
+    if not save_path:
+        messagebox.showerror("Error", "No file selected for saving the model.")
+        return
+
+    # Save the model
+    if save_path.endswith(".pkl"):
+        with open(save_path, 'wb') as f:
+            pickle.dump(model, f)
+    elif save_path.endswith(".joblib"):
+        joblib.dump(model, save_path)
+
+    messagebox.showinfo("Success", f"Model saved successfully to {save_path}.")
 
 def evaluate_model(model, test_features, test_labels, model_name):
     probabilities = model.predict_proba(test_features)[:, 1]
@@ -239,6 +264,11 @@ def evaluate_model(model, test_features, test_labels, model_name):
     # Save button
     save_button = tk.Button(plot_window, text="Save Plots", command=lambda: save_plots(fig, model_name))
     save_button.pack(side=tk.BOTTOM)
+    
+    # Export model button
+    export_button = tk.Button(plot_window, text="Export Model", command=lambda: export_model(model, model_name))
+    export_button.pack(side=tk.RIGHT, padx=10, pady=10)
+
     messagebox.showinfo("Analysis Complete", "Analysis displayed in a new window.")
 
 def save_plots(fig, model_name):
@@ -248,6 +278,13 @@ def save_plots(fig, model_name):
     # Save figure
     fig.savefig(os.path.join(output_dir, f'{model_name}_analysis_plots.png'))
     messagebox.showinfo("Save Successful", f"Plots saved in '{output_dir}' folder.")
+
+def run_neural_script():
+    try:
+        subprocess.run(["python", "neural.py"], check=True)
+        messagebox.showinfo("Success", "neural.py ran successfully.")
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror("Error", f"Failed to run neural.py: {e}")
 
 root = tk.Tk()
 root.title("MiniZinc Instance Solver")
@@ -298,6 +335,10 @@ solve_button.pack(padx=10, pady=5)
 solve_button = tk.Button(root, text="Train Model", command=train_model)
 solve_button.pack(padx=10, pady=5)
 
+# Button to run neural.py script
+neural_button = tk.Button(root, text="Run Neural Script", command=run_neural_script)
+neural_button.pack(padx=10, pady=5)
+
 # Initialize the progress bar
 progress = ttk.Progressbar(root, orient="horizontal", length=200, mode='determinate')
 progress.pack(padx=10, pady=20)
@@ -305,6 +346,36 @@ progress.pack(padx=10, pady=20)
 # Drop down values
 dropdown = tk.OptionMenu(root, dropdown_var1, *options1)
 dropdown.pack()
+
+
+frame = tk.Frame(root)
+frame.pack(pady=20, padx=20)
+
+# Criterion for Decision Tree
+tk.Label(frame, text="Criterion:").grid(row=4, column=0, sticky=tk.W)
+criterion_var = tk.StringVar(value='gini')
+tk.OptionMenu(frame, criterion_var, 'gini', 'entropy').grid(row=4, column=1, sticky=tk.W)
+
+# Max Depth for Decision Tree
+tk.Label(frame, text="Max Depth:").grid(row=5, column=0, sticky=tk.W)
+max_depth_entry = tk.Entry(frame)
+max_depth_entry.grid(row=5, column=1)
+
+# Min Samples Split for Decision Tree
+tk.Label(frame, text="Min Samples Split:").grid(row=6, column=0, sticky=tk.W)
+min_samples_split_entry = tk.Entry(frame)
+min_samples_split_entry.grid(row=6, column=1)
+
+# Min Samples Leaf for Decision Tree
+tk.Label(frame, text="Min Samples Leaf:").grid(row=7, column=0, sticky=tk.W)
+min_samples_leaf_entry = tk.Entry(frame)
+min_samples_leaf_entry.grid(row=7, column=1)
+
+# Model selection
+tk.Label(frame, text="Select Model:").grid(row=8, column=0, sticky=tk.W)
+dropdown_var1 = tk.StringVar(value='Decision tree model')
+model_menu = tk.OptionMenu(frame, dropdown_var1, 'Decision tree model', 'Xgboost tree model', 'Random forest model')
+model_menu.grid(row=8, column=1, sticky=tk.W)
 
 # Analyze button
 analyze_button = tk.Button(root, text="Analyze Data", command=lambda: analyze_data(root))

@@ -1,2 +1,4 @@
 instances/
 processed/
+solved_instances/
+.pkl/

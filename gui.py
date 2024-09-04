@@ -322,12 +322,6 @@ num_solve_instances_label.pack(padx=10, pady=5)
 num_solve_instances_entry = tk.Entry(root, width=10)
 num_solve_instances_entry.pack(padx=10, pady=5)
 
-# Entry for percentage of instances to train
-train_percentage_label = tk.Label(root, text="Percentage of Instances to Train:")
-train_percentage_label.pack(padx=10, pady=5)
-train_percentage_entry = tk.Entry(root, width=10)
-train_percentage_entry.pack(padx=10, pady=5)
-
 
 solve_button = tk.Button(root, text="Solve Instances", command=solve_instances)
 solve_button.pack(padx=10, pady=5)
@@ -338,6 +332,7 @@ solve_button.pack(padx=10, pady=5)
 # Button to run neural.py script
 neural_button = tk.Button(root, text="Run Neural Script", command=run_neural_script)
 neural_button.pack(padx=10, pady=5)
+
 
 # Initialize the progress bar
 progress = ttk.Progressbar(root, orient="horizontal", length=200, mode='determinate')
@@ -350,6 +345,12 @@ dropdown.pack()
 
 frame = tk.Frame(root)
 frame.pack(pady=20, padx=20)
+
+# Entry for percentage of instances to train
+train_percentage_label = tk.Label(root, text="Percentage of Instances to Train:")
+train_percentage_label.pack(padx=10, pady=5)
+train_percentage_entry = tk.Entry(root, width=10)
+train_percentage_entry.pack(padx=10, pady=5)
 
 # Criterion for Decision Tree
 tk.Label(frame, text="Criterion:").grid(row=4, column=0, sticky=tk.W)

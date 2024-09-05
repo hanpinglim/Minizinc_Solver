@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../Minizinc_Solver/solved_instances"
+		}
+	],
+	"settings": {}
+}

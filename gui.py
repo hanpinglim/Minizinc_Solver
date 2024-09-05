@@ -147,15 +147,6 @@ def solve_instances():
     else:
         messagebox.showinfo("Completion", "All instances processed successfully with no failures.")
 
-def train_model():
-    from trainer import process_data 
-
-    # Process the data and check if it was successful
-    if process_data():
-        messagebox.showinfo("Success", "Data processed successfully and is ready for training.")
-    else:
-        messagebox.showerror("Error", "Failed to process data.")
-
 def select_file():
     # Update to only accept .mzn files
     file_path = filedialog.askopenfilename(filetypes=[("MiniZinc files", "*.mzn")])
@@ -289,13 +280,6 @@ def run_neural_script():
 root = tk.Tk()
 root.title("MiniZinc Instance Solver")
 
-# Options for dropdown menus
-options1 = ["Decision tree model", "Xgboost tree model", "Random forest model"]
-
-# Define tkinter variable for dropdown selection
-dropdown_var1 = tk.StringVar(root)
-dropdown_var1.set("Decision tree model")
-
 # Create an entry widget to display the file path
 label_mzn = tk.Label(root, text="Constraint Model File (.mzn):")
 label_mzn.pack(padx=10, pady=5)
@@ -326,9 +310,6 @@ num_solve_instances_entry.pack(padx=10, pady=5)
 solve_button = tk.Button(root, text="Solve Instances", command=solve_instances)
 solve_button.pack(padx=10, pady=5)
 
-solve_button = tk.Button(root, text="Train Model", command=train_model)
-solve_button.pack(padx=10, pady=5)
-
 # Button to run neural.py script
 neural_button = tk.Button(root, text="Run Neural Script", command=run_neural_script)
 neural_button.pack(padx=10, pady=5)
@@ -338,19 +319,9 @@ neural_button.pack(padx=10, pady=5)
 progress = ttk.Progressbar(root, orient="horizontal", length=200, mode='determinate')
 progress.pack(padx=10, pady=20)
 
-# Drop down values
-dropdown = tk.OptionMenu(root, dropdown_var1, *options1)
-dropdown.pack()
-
 
 frame = tk.Frame(root)
 frame.pack(pady=20, padx=20)
-
-# Entry for percentage of instances to train
-train_percentage_label = tk.Label(root, text="Percentage of Instances to Train:")
-train_percentage_label.pack(padx=10, pady=5)
-train_percentage_entry = tk.Entry(root, width=10)
-train_percentage_entry.pack(padx=10, pady=5)
 
 # Criterion for Decision Tree
 tk.Label(frame, text="Criterion:").grid(row=4, column=0, sticky=tk.W)
@@ -371,6 +342,11 @@ min_samples_split_entry.grid(row=6, column=1)
 tk.Label(frame, text="Min Samples Leaf:").grid(row=7, column=0, sticky=tk.W)
 min_samples_leaf_entry = tk.Entry(frame)
 min_samples_leaf_entry.grid(row=7, column=1)
+
+# Min Samples Leaf for Decision Tree
+tk.Label(frame, text="Percentage of instances to train:").grid(row=7, column=0, sticky=tk.W)
+train_percentage_entry = tk.Entry(frame)
+train_percentage_entry.grid(row=7, column=1)
 
 # Model selection
 tk.Label(frame, text="Select Model:").grid(row=8, column=0, sticky=tk.W)

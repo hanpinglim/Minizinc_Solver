@@ -2,6 +2,10 @@ import pandas as pd
 import os
 from tkinter import Toplevel, Label, StringVar, OptionMenu, Entry, Button, messagebox
 import random
+import shutil
+from tkinter import ttk
+
+
 
 # Function to convert hex string to decimal
 def convert_hex_to_decimal(hex_string, n):
@@ -58,10 +62,8 @@ array[1..n, 1..n] of var 0..n: x = [
         file.write(dzn_content)
 
 # Function to fetch Sudoku solutions and save them in the chosen folders
-def extract_solutions_and_problems(csv_file_path, num_solutions, output_solution_folder, output_problem_folder, n, fixed_unknowns=None):
+def extract_solutions_and_problems(csv_file_path, num_solutions, output_solution_folder, output_problem_folder, n, fixed_unknowns=None, progress_bar=None):
     df = pd.read_csv(csv_file_path, nrows=100000)
-
-    #df = pd.read_csv(csv_file_path)
 
     valid_solutions = []  
     valid_problems = []   
@@ -80,6 +82,11 @@ def extract_solutions_and_problems(csv_file_path, num_solutions, output_solution
 
     selected_indices = random.sample(range(len(valid_solutions)), num_solutions)
 
+    # Set the max value for the progress bar
+    if progress_bar:
+        progress_bar["maximum"] = num_solutions
+        progress_bar["value"] = 0
+
     for i, idx in enumerate(selected_indices):
         solution = valid_solutions[idx]
         problem = valid_problems[idx]
@@ -93,6 +100,68 @@ def extract_solutions_and_problems(csv_file_path, num_solutions, output_solution
                 os.makedirs(output_fixed_folder)
 
             save_sudoku_instance(problem, i, output_fixed_folder, n, "problem", unknowns=fixed_unknowns, solution=solution)
+
+        # Update the progress bar after each instance
+        if progress_bar:
+            progress_bar["value"] += 1
+            progress_bar.update()
+
+# Function to split instances into train and test folders based on percentage
+def split_into_train_test(folder_path, percentage):
+    problem_folder = os.path.join(folder_path, "problems")
+    fixed_unknowns_folder = os.path.join(folder_path, "problems_fixed_unknowns")
+    solution_folder = os.path.join(folder_path, "solutions")
+    
+    # Create train and test folders
+    train_folder = os.path.join(folder_path, "train")
+    test_folder = os.path.join(folder_path, "test")
+
+    if not os.path.exists(train_folder):
+        os.makedirs(train_folder)
+    if not os.path.exists(test_folder):
+        os.makedirs(test_folder)
+
+    # Create subfolders inside train and test
+    train_problem_folder = os.path.join(train_folder, "problems")
+    test_problem_folder = os.path.join(test_folder, "problems")
+    os.makedirs(train_problem_folder, exist_ok=True)
+    os.makedirs(test_problem_folder, exist_ok=True)
+
+    train_fixed_folder = os.path.join(train_folder, "problems_fixed_unknowns")
+    test_fixed_folder = os.path.join(test_folder, "problems_fixed_unknowns")
+    os.makedirs(train_fixed_folder, exist_ok=True)
+    os.makedirs(test_fixed_folder, exist_ok=True)
+
+    train_solution_folder = os.path.join(train_folder, "solutions")
+    test_solution_folder = os.path.join(test_folder, "solutions")
+    os.makedirs(train_solution_folder, exist_ok=True)
+    os.makedirs(test_solution_folder, exist_ok=True)
+
+    # Function to split files between train and test folders
+    def move_files(src_folder, train_dest, test_dest):
+        files = os.listdir(src_folder)
+        total_files = len(files)
+        train_count = int(total_files * (percentage / 100))
+        test_count = total_files - train_count
+
+        # Move the first 'train_count' files to train and the rest to test
+        for i, file_name in enumerate(files):
+            src_file = os.path.join(src_folder, file_name)
+            if i < train_count:
+                shutil.move(src_file, os.path.join(train_dest, file_name))
+            else:
+                shutil.move(src_file, os.path.join(test_dest, file_name))
+
+    # Move files in problems, problems_fixed_unknowns, and solutions
+    move_files(problem_folder, train_problem_folder, test_problem_folder)
+    move_files(fixed_unknowns_folder, train_fixed_folder, test_fixed_folder)
+    move_files(solution_folder, train_solution_folder, test_solution_folder)
+
+    # Remove the now-empty root problem and solution folders
+    shutil.rmtree(problem_folder)
+    shutil.rmtree(fixed_unknowns_folder)
+    shutil.rmtree(solution_folder)
+
 
 # Function to handle GUI prompts and actions
 def run_extraction_gui():
@@ -113,6 +182,15 @@ def run_extraction_gui():
     Label(sudoku_window, text="Number of unknowns:").grid(row=2, column=0, padx=10, pady=10)
     unknowns_entry = Entry(sudoku_window)
     unknowns_entry.grid(row=2, column=1, padx=10, pady=10)
+
+    # Add new percentage input field
+    Label(sudoku_window, text="Percentage of instances to train:").grid(row=3, column=0, padx=10, pady=10)
+    percentage_entry = Entry(sudoku_window)
+    percentage_entry.grid(row=3, column=1, padx=10, pady=10)
+
+    # Add a progress bar
+    progress_bar = ttk.Progressbar(sudoku_window, orient="horizontal", mode="determinate", length=200)
+    progress_bar.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
 
     def on_submit():
         n = int(n_var.get())
@@ -137,6 +215,16 @@ def run_extraction_gui():
             messagebox.showerror("Error", "Please enter a valid number of unknowns!")
             return
 
+        # Fetch and validate the percentage
+        try:
+            percentage_value = float(percentage_entry.get())
+            if not 0 <= percentage_value <= 100:
+                messagebox.showerror("Error", "Please enter a percentage between 0 and 100!")
+                return
+        except ValueError:
+            messagebox.showerror("Error", "Please enter a valid percentage!")
+            return
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
 
         if n == 9:
@@ -157,11 +245,16 @@ def run_extraction_gui():
             os.makedirs(output_problem_folder)
 
         try:
-            extract_solutions_and_problems(csv_file_path, num_solutions, output_solution_folder, output_problem_folder, n, fixed_unknowns=desired_unknowns)
-            messagebox.showinfo("Success", f"Extracted {num_solutions} solutions and problems with {desired_unknowns} unknowns!")
+            # Extract the solutions and problems
+            extract_solutions_and_problems(csv_file_path, num_solutions, output_solution_folder, output_problem_folder, n, fixed_unknowns=desired_unknowns, progress_bar=progress_bar)
+
+            # After extraction, split the instances into train and test folders
+            split_into_train_test(os.path.join(base_dir, "solved_instances"), percentage_value)
+            
+            # Show success message after splitting
+            messagebox.showinfo("Success", f"Extracted {num_solutions} solutions and problems with {desired_unknowns} unknowns!\nTraining percentage: {percentage_value}%")
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {e}")
 
     submit_button = Button(sudoku_window, text="Submit", command=on_submit)
-    submit_button.grid(row=3, columnspan=2, padx=10, pady=20)
-
+    submit_button.grid(row=5, columnspan=2, padx=10, pady=20)

@@ -256,5 +256,5 @@ def run_extraction_gui():
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {e}")
 
-    submit_button = Button(sudoku_window, text="Submit", command=on_submit)
+    submit_button = Button(sudoku_window, text="Generate Instances to Train", command=on_submit)
     submit_button.grid(row=5, columnspan=2, padx=10, pady=20)

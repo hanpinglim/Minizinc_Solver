@@ -226,8 +226,8 @@ def run_kidney_exchange_gui():
     progress.pack(padx=10, pady=20)
 
     # Drop down values
-    dropdown = tk.OptionMenu(root, dropdown_var1, *options1)
-    dropdown.pack()
+    #dropdown = tk.OptionMenu(root, dropdown_var1, *options1)
+    #dropdown.pack()
 
     root.mainloop()
 
